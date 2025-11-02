@@ -1,0 +1,23 @@
+services:
+  # Web Service - Node.js Application
+  - type: web
+    name: meme-generator
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+    autoDeploy: true
+
+  # MongoDB Database (you can use MongoDB Atlas instead)
+  # If using MongoDB Atlas, remove this section and just configure MONGODB_URI in environment variables
