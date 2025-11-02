@@ -1,18 +1,27 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { getSequelize } = require('../config/database');
 
-const statsSchema = new mongoose.Schema({
-  totalMemes: {
-    type: Number,
-    default: 0
-  },
-  totalVisitors: {
-    type: Number,
-    default: 0
-  },
-  lastUpdated: {
-    type: Date,
-    default: Date.now
-  }
-});
+const Stats = () => {
+  const sequelize = getSequelize();
 
-module.exports = mongoose.model('Stats', statsSchema);
+  return sequelize.define('Stats', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    totalMemes: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    totalVisitors: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    }
+  }, {
+    tableName: 'stats',
+    timestamps: true
+  });
+};
+
+module.exports = Stats;

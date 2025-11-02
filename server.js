@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const connectDB = require('./server/config/database');
+const { connectDB } = require('./server/config/database');
 const memeRoutes = require('./server/routes/memeRoutes');
 
 const app = express();

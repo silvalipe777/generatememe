@@ -1,43 +1,55 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { getSequelize } = require('../config/database');
 
-const memeSchema = new mongoose.Schema({
-  prompt: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  imageUrl: {
-    type: String,
-    required: true
-  },
-  caption: {
-    type: String,
-    default: ''
-  },
-  likes: {
-    type: Number,
-    default: 0
-  },
-  views: {
-    type: Number,
-    default: 0
-  },
-  author: {
-    type: String,
-    default: 'Anon'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  featured: {
-    type: Boolean,
-    default: false
-  }
-});
+const Meme = () => {
+  const sequelize = getSequelize();
 
-// Index para melhorar performance de queries
-memeSchema.index({ likes: -1 });
-memeSchema.index({ createdAt: -1 });
+  return sequelize.define('Meme', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    prompt: {
+      type: DataTypes.TEXT,
+      allowNull: false
+    },
+    imageUrl: {
+      type: DataTypes.TEXT,
+      allowNull: false
+    },
+    caption: {
+      type: DataTypes.TEXT,
+      defaultValue: ''
+    },
+    likes: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    views: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    author: {
+      type: DataTypes.STRING,
+      defaultValue: 'Anon'
+    },
+    featured: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    }
+  }, {
+    tableName: 'memes',
+    timestamps: true,
+    indexes: [
+      {
+        fields: ['likes']
+      },
+      {
+        fields: ['createdAt']
+      }
+    ]
+  });
+};
 
-module.exports = mongoose.model('Meme', memeSchema);
+module.exports = Meme;

@@ -1,4 +1,14 @@
 services:
+  # PostgreSQL Database
+  - type: pserv
+    name: meme-generator-db
+    env: docker
+    plan: free
+    region: oregon
+    databases:
+      - name: memedb
+        user: memeuser
+
   # Web Service - Node.js Application
   - type: web
     name: meme-generator
@@ -13,11 +23,10 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: MONGODB_URI
-        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: meme-generator-db
+          property: connectionString
       - key: OPENAI_API_KEY
         sync: false
     autoDeploy: true
-
-  # MongoDB Database (you can use MongoDB Atlas instead)
-  # If using MongoDB Atlas, remove this section and just configure MONGODB_URI in environment variables

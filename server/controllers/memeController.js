@@ -1,14 +1,24 @@
 const OpenAI = require('openai');
-const Meme = require('../models/Meme');
-const Stats = require('../models/Stats');
+const MemeModel = require('../models/Meme');
+const StatsModel = require('../models/Stats');
+const { Op } = require('sequelize');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// Obter modelos
+let Meme, Stats;
+
+const initModels = () => {
+  if (!Meme) Meme = MemeModel();
+  if (!Stats) Stats = StatsModel();
+};
+
 // Gerar meme com OpenAI
 exports.generateMeme = async (req, res) => {
   try {
+    initModels();
     const { prompt, style = 'meme' } = req.body;
 
     if (!prompt) {
@@ -45,21 +55,22 @@ exports.generateMeme = async (req, res) => {
     const caption = captionResponse.choices[0].message.content.trim();
 
     // Salvar no banco de dados
-    const meme = new Meme({
+    const meme = await Meme.create({
       prompt,
       imageUrl,
       caption,
       author: req.body.author || 'Anon'
     });
 
-    await meme.save();
-
     // Atualizar estatísticas
-    await Stats.findOneAndUpdate(
-      {},
-      { $inc: { totalMemes: 1 }, $set: { lastUpdated: new Date() } },
-      { upsert: true }
-    );
+    const [stats, created] = await Stats.findOrCreate({
+      where: { id: 1 },
+      defaults: { totalMemes: 1, totalVisitors: 0 }
+    });
+
+    if (!created) {
+      await stats.increment('totalMemes');
+    }
 
     res.status(201).json({
       success: true,
@@ -77,27 +88,28 @@ exports.generateMeme = async (req, res) => {
 // Buscar todos os memes
 exports.getMemes = async (req, res) => {
   try {
+    initModels();
     const { page = 1, limit = 20, sort = 'recent' } = req.query;
 
-    let sortOption = {};
+    let order = [];
     if (sort === 'recent') {
-      sortOption = { createdAt: -1 };
+      order = [['createdAt', 'DESC']];
     } else if (sort === 'popular') {
-      sortOption = { likes: -1 };
+      order = [['likes', 'DESC']];
     }
 
-    const memes = await Meme.find()
-      .sort(sortOption)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .exec();
+    const offset = (page - 1) * limit;
 
-    const count = await Meme.countDocuments();
+    const { count, rows: memes } = await Meme.findAndCountAll({
+      order,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
 
     res.json({
       memes,
       totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      currentPage: parseInt(page),
       total: count
     });
   } catch (error) {
@@ -109,10 +121,11 @@ exports.getMemes = async (req, res) => {
 // Hall of Fame (memes mais populares)
 exports.getHallOfFame = async (req, res) => {
   try {
-    const memes = await Meme.find()
-      .sort({ likes: -1 })
-      .limit(10)
-      .exec();
+    initModels();
+    const memes = await Meme.findAll({
+      order: [['likes', 'DESC']],
+      limit: 10
+    });
 
     res.json({ memes });
   } catch (error) {
@@ -124,17 +137,17 @@ exports.getHallOfFame = async (req, res) => {
 // Dar like em um meme
 exports.likeMeme = async (req, res) => {
   try {
+    initModels();
     const { id } = req.params;
 
-    const meme = await Meme.findByIdAndUpdate(
-      id,
-      { $inc: { likes: 1 } },
-      { new: true }
-    );
+    const meme = await Meme.findByPk(id);
 
     if (!meme) {
       return res.status(404).json({ error: 'Meme não encontrado' });
     }
+
+    await meme.increment('likes');
+    await meme.reload();
 
     res.json({ success: true, meme });
   } catch (error) {
@@ -146,17 +159,17 @@ exports.likeMeme = async (req, res) => {
 // Incrementar visualizações
 exports.viewMeme = async (req, res) => {
   try {
+    initModels();
     const { id } = req.params;
 
-    const meme = await Meme.findByIdAndUpdate(
-      id,
-      { $inc: { views: 1 } },
-      { new: true }
-    );
+    const meme = await Meme.findByPk(id);
 
     if (!meme) {
       return res.status(404).json({ error: 'Meme não encontrado' });
     }
+
+    await meme.increment('views');
+    await meme.reload();
 
     res.json({ success: true, meme });
   } catch (error) {
@@ -168,16 +181,15 @@ exports.viewMeme = async (req, res) => {
 // Obter estatísticas
 exports.getStats = async (req, res) => {
   try {
-    let stats = await Stats.findOne();
-
-    if (!stats) {
-      stats = new Stats();
-      await stats.save();
-    }
+    initModels();
+    const [stats, created] = await Stats.findOrCreate({
+      where: { id: 1 },
+      defaults: { totalMemes: 0, totalVisitors: 0 }
+    });
 
     // Incrementar visitantes
-    stats.totalVisitors += 1;
-    await stats.save();
+    await stats.increment('totalVisitors');
+    await stats.reload();
 
     res.json({
       totalMemes: stats.totalMemes,
